@@ -1,0 +1,21 @@
+Folder PATH listing for volume New Volume
+Volume serial number is F459-4F24
+D:.
+|   .gitignore
+|   README.md
+|   structure.txt
+|   
+\---public
+    |   doctor.html
+    |   index.html
+    |   login.html
+    |   receptionist.html
+    |   register.html
+    |   
+    \---assets
+            auth.js
+            doctor.js
+            firebase.js
+            receptionist.js
+            styles.css
+            
