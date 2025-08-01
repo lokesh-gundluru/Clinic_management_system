@@ -1,0 +1,172 @@
+<!-- receptionist.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Receptionist Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f0f4f8;
+    }
+    h2 {
+      color: #2c3e50;
+    }
+    label, h3 {
+      font-weight: bold;
+    }
+    input, textarea {
+      padding: 8px;
+      width: 100%;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #2980b9;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background-color: #1f6391;
+    }
+    ul {
+      padding: 0;
+      list-style-type: none;
+    }
+    li {
+      background: #ffffff;
+      padding: 10px;
+      margin-bottom: 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    li:hover {
+      background: #eaf4fc;
+    }
+    .section {
+      margin-bottom: 30px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Receptionist Dashboard</h2>
+
+  <div class="section">
+    <label>Patient Name</label><br>
+    <input id="patientName" placeholder="Enter patient name" /><br>
+
+    <label>Symptoms</label><br>
+    <textarea id="symptoms" placeholder="Enter symptoms"></textarea><br>
+
+    <button id="registerBtn">Register</button>
+  </div>
+
+  <div class="section">
+    <h3>Today’s Tokens</h3>
+    <ul id="tokenList"></ul>
+  </div>
+
+  <div class="section">
+    <h3>Pending Prescriptions (Click to Enter Bill)</h3>
+    <ul id="billingList"></ul>
+
+    <p id="selectedPrescription"></p>
+    <input id="billAmount" type="number" placeholder="Enter bill amount" />
+    <button id="submitBillBtn" disabled>Submit Bill</button>
+  </div>
+
+  <script type="module">
+    import { db } from "../src/firebase.js";
+    import {
+      collection, addDoc, onSnapshot, doc, updateDoc, query, orderBy
+    } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-firestore.js";
+
+    const patientName = document.getElementById("patientName");
+    const symptoms = document.getElementById("symptoms");
+    const registerBtn = document.getElementById("registerBtn");
+    const tokenList = document.getElementById("tokenList");
+    const billingList = document.getElementById("billingList");
+    const selectedPrescription = document.getElementById("selectedPrescription");
+    const billAmount = document.getElementById("billAmount");
+    const submitBillBtn = document.getElementById("submitBillBtn");
+
+    let selectedPatientId = null;
+
+    registerBtn.onclick = async () => {
+      const name = patientName.value.trim();
+      const sym = symptoms.value.trim();
+      if (!name || !sym) {
+        alert("Please enter name and symptoms");
+        return;
+      }
+
+      await addDoc(collection(db, "patients"), {
+        name,
+        symptoms: sym,
+        createdAt: new Date(),
+      });
+
+      patientName.value = "";
+      symptoms.value = "";
+    };
+
+    const loadPatients = async () => {
+      const q = query(collection(db, "patients"), orderBy("createdAt"));
+      tokenList.innerHTML = "";
+      billingList.innerHTML = "";
+
+      let tokenNumber = 1;
+      onSnapshot(q, (snapshot) => {
+        tokenList.innerHTML = "";
+        billingList.innerHTML = "";
+        tokenNumber = 1;
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const id = docSnap.id;
+          const tokenInfo = `Token ${tokenNumber++} - ${data.name} (${data.symptoms})`;
+
+          const li = document.createElement("li");
+          li.textContent = tokenInfo;
+          tokenList.appendChild(li);
+
+          if (data.prescription && !data.billAmount) {
+            const pendingLi = document.createElement("li");
+            pendingLi.textContent = `${data.name} - ${data.prescription}`;
+            pendingLi.onclick = () => {
+              selectedPatientId = id;
+              selectedPrescription.textContent = `Billing for: ${data.name}`;
+              submitBillBtn.disabled = false;
+            };
+            billingList.appendChild(pendingLi);
+          }
+        });
+      });
+    };
+
+    loadPatients();
+
+    submitBillBtn.onclick = async () => {
+      const amount = parseFloat(billAmount.value);
+      if (!selectedPatientId || isNaN(amount)) {
+        alert("Missing patient or bill amount");
+        return;
+      }
+
+      await updateDoc(doc(db, "patients", selectedPatientId), {
+        billAmount: amount
+      });
+
+      alert("✅ Bill submitted!");
+      selectedPrescription.textContent = "";
+      billAmount.value = "";
+      submitBillBtn.disabled = true;
+    };
+  </script>
+</body>
+</html>
